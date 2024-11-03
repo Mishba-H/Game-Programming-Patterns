@@ -3,101 +3,56 @@ using System.Collections.Generic;
 
 namespace StateMachinePattern
 {
+    [System.Serializable]
     public class StateMachine
     {
-        StateNode current;
-        Dictionary<Type, StateNode> nodes = new();
-        HashSet<ITransition> anyTransitions = new();
+        public Dictionary<Type, IState> states = new Dictionary<Type, IState>();
+
+        public IState currentState;
+        public IState previousState;
+
+        public void SetState(IState state)
+        {
+            currentState = state;
+            currentState.OnEnter();
+        }
+
+        private void ChangeState(IState newState)
+        {
+            if (currentState == newState) return;
+
+            previousState = currentState;
+            currentState = newState;
+
+            previousState?.OnExit();
+            currentState?.OnEnter();
+        }
+
+        public void AddState(IState state)
+        {
+            if (!states.ContainsKey(state.GetType())) 
+                states.Add(state.GetType(), state);
+        }
+
+        public void RemoveState(IState state) 
+        { 
+            if (states.ContainsKey(state.GetType())) 
+                states.Remove(state.GetType());
+        }
 
         public void Update()
         {
-            var transition = GetTransition();
-            if (transition != null)
-            {
-                ChangeState(transition.to);
-            } 
-                
-            current.state?.Update();
+            currentState?.Update();
         }
 
         public void FixedUpdate()
         {
-            current.state?.FixedUpdate();
+            currentState?.FixedUpdate();
         }
 
-        public void SetState(IState state)
+        public void HandleTransition()
         {
-            current = nodes[state.GetType()];
-            current.state?.OnEnter();
-        }
-
-        private void ChangeState(IState state)
-        {
-            if (current.state == state) return;
-
-            var previousState = current.state;
-            var nextState = nodes[state.GetType()].state;
-
-            previousState?.OnExit();
-            nextState?.OnExit();
-            current = nodes[state.GetType()];
-        }
-
-        private ITransition GetTransition()
-        {
-            foreach (var transition in anyTransitions)
-            {
-                if (transition.condition.Evaluate())
-                    return transition;
-            }
-
-            foreach (var transition in current.transitions)
-            {
-                if (transition.condition.Evaluate())
-                    return transition;
-            }
-
-            return null;
-        }
-
-        public void AddTransition(IState from, IState to, IPredicate condition)
-        {
-            GetOrAddNode(from).AddTransition(GetOrAddNode(to).state, condition);
-        }
-
-        public void AddAnyTransition(IState to, IPredicate condition)
-        {
-            anyTransitions.Add(new Transition(GetOrAddNode(to).state, condition));
-        }
-
-        private StateNode GetOrAddNode(IState state)
-        {
-            var node = nodes.GetValueOrDefault(state.GetType());
-
-            if (node == null)
-            {
-                node = new StateNode(state);
-                nodes.Add(state.GetType(), node);
-            }
-
-            return node;
-        }
-
-        private class StateNode
-        {
-            public IState state;
-            public HashSet<ITransition> transitions;
-
-            public StateNode(IState state)
-            {
-                this.state = state;
-                transitions = new HashSet<ITransition>();
-            }
-
-            public void AddTransition(IState to, IPredicate condition)
-            {
-                transitions.Add(new Transition(to, condition));
-            }
+            currentState?.HandleTransition();
         }
     }
 }

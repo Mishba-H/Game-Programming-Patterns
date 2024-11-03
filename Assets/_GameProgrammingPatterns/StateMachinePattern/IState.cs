@@ -7,6 +7,7 @@ namespace StateMachinePattern
         void OnEnter();
         void Update();
         void FixedUpdate();
+        void HandleTransition();
         void OnExit();
     }
 }
